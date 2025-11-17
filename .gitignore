@@ -2,3 +2,5 @@
 build/
 spoken_to_signed.egg-info/
 .env
+.venv/
+data/
