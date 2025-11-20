@@ -19,8 +19,13 @@ def text_to_gloss(text: str, language: str, ignore_punctuation: bool = False, **
     model_name = LANGUAGE_MODELS_SPACY[language]
 
     # disable unnecessary components to make lemmatization faster
-
-    spacy_model = load_spacy_model(model_name, disable=("parser", "ner"))
+    try:
+        spacy_model = load_spacy_model(model_name, disable=("parser", "ner"))
+    except RuntimeError as e:
+        print(e)
+        print("Falling back to simple lemmatizer.")
+        from .simple import text_to_gloss as simple_text_to_gloss
+        return simple_text_to_gloss(text, language, ignore_punctuation=ignore_punctuation)
 
     doc = spacy_model(text)
 

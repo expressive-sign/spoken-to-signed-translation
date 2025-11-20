@@ -3,6 +3,12 @@ import tarfile
 import requests
 import torch as pt
 import sentencepiece as spm
+
+# mxnet/sockeye expect the deprecated np.bool alias, missing in numpy>=1.24
+import numpy as np
+if not hasattr(np, "bool"):
+    np.bool = np.bool_  # type: ignore[attr-defined]
+
 import sockeye.inference
 
 from sockeye import inference, model

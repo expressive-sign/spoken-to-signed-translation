@@ -10,6 +10,12 @@ def load_spacy_model(model_names: Tuple[str, ...], disable: Optional[Tuple[str, 
     except ImportError as e:
         raise ImportError("Please install spacy. pip install spacy") from e
 
+    if isinstance(model_names, str):
+        model_names = (model_names,)
+
+    if not isinstance(model_names, tuple):
+        model_names = tuple(model_names)
+
     if disable is None:
         disable = []
 
@@ -19,9 +25,8 @@ def load_spacy_model(model_names: Tuple[str, ...], disable: Optional[Tuple[str, 
         except OSError:
             print(f"{model_name} not found")
 
-    # If none of the models worked, download the last one and download if necessary
+    # If none of the models worked, raise a clear error instead of silently downloading (which might fail offline).
     last_model = model_names[-1]
-    print(f"{last_model} not found. Downloading...")
-    import spacy.cli
-    spacy.cli.download(last_model)
-    return spacy.load(last_model, disable=disable)
+    raise RuntimeError(
+        f"spaCy model '{last_model}' not found. Please install it manually, e.g. `python -m spacy download {last_model}`."
+    )

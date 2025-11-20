@@ -4,3 +4,9 @@ spoken_to_signed.egg-info/
 .env
 .venv/
 data/
+
+outputs/
+logs/
+__pycache__/
+*.pyc
+*.pyo
