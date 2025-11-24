@@ -8,8 +8,7 @@ from .. import CSVPoseLookup, concatenate_poses
 class FingerspellingPoseLookup(CSVPoseLookup):
     def __init__(self):
         fs_directory = Path(__file__).parent.parent.parent / "assets" / "fingerspelling_lexicon"
-
-        super().__init__(directory=str(fs_directory))
+        super().__init__(source_path=str(fs_directory))
 
         # Precompute the sorted alphabets to make the lookup faster
         self.alphabets = {
@@ -44,7 +43,7 @@ class FingerspellingPoseLookup(CSVPoseLookup):
         pose.body.fps = fps
         return pose
 
-    def lookup(self, word: str, gloss: str, spoken_language: str, signed_language: str, source: str = None) -> Pose:
+    def lookup(self, word: str, gloss: str, spoken_language: str, signed_language: str, source: str = None, return_metadata: bool = False):
         if spoken_language not in self.words_index or signed_language not in self.words_index[spoken_language]:
             raise FileNotFoundError(
                 f"Language pair {spoken_language} -> {signed_language} not supported for fingerspelling")
@@ -54,4 +53,17 @@ class FingerspellingPoseLookup(CSVPoseLookup):
         # hold the last letters longer to make it more readable
         poses[-1] = self.stretch_pose(poses[-1], 2)
 
-        return concatenate_poses(poses)
+        pose = concatenate_poses(poses)
+        if return_metadata:
+            return pose, {
+                "path": "",
+                "start": 0,
+                "end": 0,
+                "words": word,
+                "glosses": gloss,
+                "spoken_language": spoken_language,
+                "signed_language": signed_language,
+                "priority": 0,
+            }
+
+        return pose

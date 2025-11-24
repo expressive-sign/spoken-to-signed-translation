@@ -15,21 +15,38 @@ class PoseLookup:
     def __init__(self, rows: List,
                  directory: str = None,
                  backup: "PoseLookup" = None,
-                 cache: LRUCache = None):
+                 cache: LRUCache = None,
+                 priority_mode: str = "shortest"):
         self.directory = directory
+        self.priority_mode = priority_mode
 
         self.words_index = self.make_dictionary_index(rows, based_on="words")
         self.glosses_index = self.make_dictionary_index(rows, based_on="glosses")
+
+        if self.priority_mode == "id_gloss_max":
+            self.person_gloss_counts = self.calculate_person_gloss_counts(rows)
 
         self.backup = backup
 
         self.file_systems = {}
         self.cache = cache if cache is not None else LRUCache()
 
+    def calculate_person_gloss_counts(self, rows: List):
+        counts = defaultdict(set)
+        for d in rows:
+            pid = int(d.get('person_id', -1))
+            if pid != -1 and 'glosses' in d:
+                 counts[pid].add(d['glosses'])
+        
+        return {pid: len(glosses) for pid, glosses in counts.items()}
+
     def make_dictionary_index(self, rows: List, based_on: str):
         # As an attempt to make the index more compact in memory, we store a dictionary with only what we need
         languages_dict = defaultdict(lambda: defaultdict(lambda: defaultdict(list)))
         for d in rows:
+            if based_on not in d:
+                continue
+
             term = d[based_on]
             lower_term = term.lower()
             languages_dict[d['spoken_language']][d['signed_language']][lower_term].append({
@@ -38,6 +55,7 @@ class PoseLookup:
                 "start": int(d['start']),
                 "end": int(d['end']),
                 "priority": int(d['priority']),
+                "person_id": int(d.get('person_id', -1)),
             })
         return languages_dict
 
@@ -53,11 +71,13 @@ class PoseLookup:
         if pose_path.startswith('https://'):
             raise NotImplementedError("Can't access pose files from https endpoint")
 
-        if self.directory is None:
-            raise ValueError("Can't access pose files without specifying a directory")
-
-        pose_path = os.path.join(self.directory, pose_path)
-        with open(pose_path, "rb") as f:
+        if os.path.isabs(pose_path):
+            file_path = pose_path
+        else:
+            if self.directory is None:
+                raise ValueError("Can't access pose files without specifying a directory")
+            file_path = os.path.join(self.directory, pose_path)
+        with open(file_path, "rb") as f:
             return Pose.read(f.read())
 
     def get_pose(self, row):
@@ -74,8 +94,13 @@ class PoseLookup:
         return Pose(pose.header, pose.body[start_frame:end_frame])
 
     def get_best_row(self, rows, term: str):
-        # Sort by priority: lower is "better"
-        rows = sorted(rows, key=lambda x: x["priority"])
+        if self.priority_mode == "id_gloss_max":
+             # Sort by person_gloss_counts (descending), then priority (ascending)
+             rows = sorted(rows, key=lambda x: (-self.person_gloss_counts.get(x["person_id"], 0), x["priority"]))
+        else:
+            # Sort by priority: lower is "better"
+            rows = sorted(rows, key=lambda x: x["priority"])
+        
         # String match exact term
         for row in rows:
             if term == row["term"]:
@@ -83,7 +108,8 @@ class PoseLookup:
         # Return the highest priority row
         return rows[0]
 
-    def lookup(self, word: str, gloss: str, spoken_language: str, signed_language: str, source: str = None) -> Pose:
+    def lookup(self, word: str, gloss: str, spoken_language: str, signed_language: str,
+               source: str = None, return_metadata: bool = False):
         lookup_list = [
             (self.words_index, (spoken_language, signed_language, word)),
             (self.glosses_index, (spoken_language, signed_language, word)),
@@ -96,26 +122,33 @@ class PoseLookup:
                     lower_term = term.lower()
                     if lower_term in dict_index[spoken_language][signed_language]:
                         rows = dict_index[spoken_language][signed_language][lower_term]
-                        return self.get_pose(self.get_best_row(rows, term))
+                        row = self.get_best_row(rows, term)
+                        pose = self.get_pose(row)
+                        if return_metadata:
+                            return pose, row.copy()
+                        return pose
 
         # Backup strategy: revert to backup sign language
         if signed_language in LANGUAGE_BACKUP:
-            return self.lookup(word, gloss, spoken_language, LANGUAGE_BACKUP[signed_language], source)
+            return self.lookup(word, gloss, spoken_language, LANGUAGE_BACKUP[signed_language], source,
+                               return_metadata=return_metadata)
 
         # Backup strategy: revert to fingerspelling
         if self.backup is not None:
-            return self.backup.lookup(word, gloss, spoken_language, signed_language, source)
+            return self.backup.lookup(word, gloss, spoken_language, signed_language, source,
+                                      return_metadata=return_metadata)
 
         raise FileNotFoundError
 
-    def lookup_sequence(self, glosses: Gloss, spoken_language: str, signed_language: str, source: str = None):
+    def lookup_sequence(self, glosses: Gloss, spoken_language: str, signed_language: str,
+                        source: str = None, return_metadata: bool = False):
         def lookup_pair(pair):
             word, gloss = pair
             if word == "":
                 return None
 
             try:
-                return self.lookup(word, gloss, spoken_language, signed_language)
+                return self.lookup(word, gloss, spoken_language, signed_language, return_metadata=return_metadata)
             except FileNotFoundError as e:
                 print(e)
                 return None
