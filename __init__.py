@@ -354,7 +354,7 @@ class SpokenToSignedPoseVideo:
                     },
                 ),
                 "spoken_language": (("en", "de"), {"default": "en"}),
-                "signed_language": (("asl", "dgs"), {"default": "asl"}),
+                "signed_language": (("ase", "gsg"), {"default": "ase"}),
                 "priority_selection": (("shortest", "id_gloss_max"), {"default": "shortest"}),
             },
             "optional": {

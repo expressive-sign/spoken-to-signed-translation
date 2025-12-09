@@ -191,7 +191,7 @@ def _text_input_arguments(parser: argparse.ArgumentParser):
         signed_languages = sorted(set(chain.from_iterable(lookup.words_index[lang].keys() for lang in spoken_languages)))
     else:
         spoken_languages = ['en', 'de']
-        signed_languages = ['asl', 'dgs']
+        signed_languages = ['ase', 'gsg']
 
     parser.add_argument("--spoken-language", choices=spoken_languages, required=True)
     parser.add_argument("--signed-language", choices=signed_languages, required=True)

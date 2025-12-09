@@ -5,16 +5,16 @@ from typing import Optional
 DATA_ROOT = Path(os.getenv("SPOKEN_TO_SIGNED_DATA_ROOT", "/media/volume/data/lexicon"))
 
 LANGUAGE_ALIASES = {
-    "ase": "asl",
-    "sgg": "dgs",
-    "gsg": "dgs",
-    "asl": "asl",
-    "dgs": "dgs",
+    "ase": "ase",
+    "sgg": "gsg",
+    "gsg": "gsg",
+    "asl": "ase",  # Map legacy code to ISO
+    "dgs": "gsg",  # Map legacy code to ISO
 }
 
 SIGN_LANGUAGE_FOLDERS = {
-    "asl": "ASL",
-    "dgs": "DGS",
+    "ase": "ase",
+    "gsg": "gsg",
 }
 
 POSE_TYPE_DIRS = {
